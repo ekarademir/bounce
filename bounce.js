@@ -20,7 +20,7 @@ function bounce(debug=false) {
 	// Internal variables
 	var intervalTime = 1000 / frameRate;
 
-	console.log(intervalTime);
+	// console.log(intervalTime);
 
 	var canvasWidth = parent.innerWidth;
 	var canvasHeight = parent.innerHeight;
@@ -51,9 +51,7 @@ function bounce(debug=false) {
 	 * SETUP
 	 */
 
-
-	var bouncer = new bbox(0, 360, 50, 10);
-
+	var screen = newGame();
 
 	/**
 	 * Event handling
@@ -62,12 +60,25 @@ function bounce(debug=false) {
 	window.focus();
 	window.addEventListener("mousemove", function(e) {
 		// console.log(e);
-		bouncer.setX(e.screenX, originX, width, pix);
+		screen.bouncers[0].setX(e.screenX, originX, width, pix);
 	}, false);
 
 	window.addEventListener("touchmove", function(e) {
 		// console.log(e);
-		bouncer.setX(e.touches[0].pageX, originX, width, pix);
+		screen.bouncers[0].setX(e.touches[0].pageX, originX, width, pix);
+	}, false);
+
+	window.addEventListener("mousedown", function(e) {
+		// console.log(e);
+		for (let i = 0; i < screen.balls.length; i++) {
+			// console.log("Ball" + i);
+			screen.balls[i].vel.x = 1;
+			screen.balls[i].vel.y = -1;
+			screen.balls[i].follow = null;
+			screen.balls[i].stuck = false;
+		}
+		// console.log(screen.balls[0]);
+
 	}, false);
 
 	/**
@@ -77,10 +88,17 @@ function bounce(debug=false) {
 		let drawStart = timer.now();
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
+		for (let i = 0; i < screen.bouncers.length; i++) {
+			screen.bouncers[i].draw(ctx, originX, originY, pix);
+		}
 
-		bouncer.draw(ctx, originX, originY, pix);
+		for (let i = 0; i < screen.balls.length; i++) {
+			screen.balls[i].move(screen);
+			screen.balls[i].draw(ctx, originX, originY, pix);
+		}
 
-		dmsg.push(bouncer.x);
+
+		dmsg.push(screen.bouncers[0].x);
 
 		if(debug) {
 			let drawTime = Math.floor(1000*(timer.now() - drawStart))/1000;
@@ -90,7 +108,29 @@ function bounce(debug=false) {
 		}
 	}, intervalTime);
 
+	function newGame() {
+		let screenTree = {
+		bouncers: [],
+		balls: []
+		}
 
+		let bouncer = new bbox(0, 360, 50, 10);
+		screenTree.bouncers.push(bouncer);
+		
+		let bouncee = new bbox(100, 250, 10, 10);
+		bouncee.vel = new vect(0,0);
+		bouncee.follow = bouncer;
+		bouncee.stuck = true;
+		screenTree.balls.push(bouncee);
+
+		screenTree.bouncers.push(new bbox(-5, -5, 5, 410));
+		screenTree.bouncers.push(new bbox(200, -5, 5, 410));
+		screenTree.bouncers.push(new bbox(-5, -5, 210, 5));
+		// screenTree.bouncers.push(new bbox(0, 400, 200, 5));
+
+		return screenTree;
+
+	}
 
 	function debugMessage() {
 		ctx.strokeStyle = "black";
@@ -147,19 +187,24 @@ class vect {
 	}
 }
 
+
 class bbox {
 	constructor(x, y, w, h) {
 		this.x = x;
 		this.y = y;
 		this.w = w;
 		this.h = h;
+		this.follow = null;
+		this.stuck = false;
+		this.r = null;
+		this.vel = null;
 	}
 	
-	isin(bb) {
-		let x11 = this.x;
-		let y11 = this.y;
-		let x12 = this.x+this.w;
-		let y12 = this.y+this.h;
+	isin1(bb,x,y) {
+		let x11 = x;
+		let y11 = y;
+		let x12 = x+this.w;
+		let y12 = y+this.h;
 		let x21 = bb.x;
 		let y21 = bb.y;
 		let x22 = bb.x+bb.w;
@@ -169,12 +214,103 @@ class bbox {
 		if(Math.max(y11, y12) < Math.min(y21, y22)) return false;
 		if(Math.min(y11, y12) > Math.max(y21, y22)) return false;
 
+
 		return true;
+	}
+	
+	collides(bb) {
+		let x11 = this.x;// + this.vel.x;
+		let y11 = this.y;// + this.vel.y;
+		let x12 = this.x+this.w;// + this.vel.x;
+		let y12 = this.y+this.h;// + this.vel.y;
+		let x21 = bb.x;
+		let y21 = bb.y;
+		let x22 = bb.x+bb.w;
+		let y22 = bb.y+bb.h;
+
+
+		//Detect collision and return impact direction.
+		// Check Right
+		// They should touch either from right or left
+		// AND they should be at the same y so that they can touch.
+		if(Math.max(x11, x12) > Math.min(x21, x22)
+		 && Math.min(x11, x12) < Math.min(x21, x22))
+		{
+			if (Math.max(y11, y12) <  Math.min(y21, y22)) return false;
+			if (Math.min(y11, y12) >  Math.max(y21, y22)) return false;
+
+			// console.log("right collision");
+			this.vel.x *= -1;
+			return true;
+		}
+
+		// Check left
+		if(Math.min(x11, x12) < Math.max(x21, x22)
+		 && Math.max(x11, x12) > Math.max(x21, x22))
+		{
+			if (Math.max(y11, y12) <  Math.min(y21, y22)) return false;
+			if (Math.min(y11, y12) >  Math.max(y21, y22)) return false;
+
+			// console.log("left collision");
+			this.vel.x *= -1;
+			return true;
+		}
+
+		// Check bottom
+		if(Math.max(y11, y12) > Math.min(y21, y22)
+		 && Math.min(y11, y12) < Math.min(y21, y22))
+		{
+			if(Math.max(x11, x12) < Math.min(x21, x22)) return false;
+			if(Math.min(x11, x12) > Math.max(x21, x22)) return false;
+
+			// console.log("bottom collision");
+			this.vel.y *= -1;
+			return true;
+		}
+
+		// Check top
+		if(Math.min(y11, y12) < Math.max(y21, y22)
+		 && Math.max(y11, y12) > Math.max(y21, y22))
+		{
+			if(Math.max(x11, x12) < Math.min(x21, x22)) return false;
+			if(Math.min(x11, x12) > Math.max(x21, x22)) return false;
+
+			// console.log("top collision");
+			this.vel.y *= -1;
+			return true;
+		}
+
+
+		return false;
+		
 	}
 
 	translate(v) {
 		this.x += v.x;
 		this.y += v.y;
+	}
+
+	move(screenTree) {
+		if(this.stuck) {
+			// r is the relative coordinate
+			if(this.r == null) {
+				this.r = new vect(20,-10);
+			}
+
+			this.x = this.r.x + this.follow.x;
+			this.y = this.r.y + this.follow.y;
+		} else {
+			for(let i = 0; i < screenTree.bouncers.length; i++) {
+				let b = screenTree.bouncers[i];
+				if(this.collides(b)){
+					// console.log("collision " + i);
+				}
+			}
+			// console.log(this.x);
+			// console.log(this.vel.x);
+			this.x += this.vel.x;
+			this.y += this.vel.y;
+		}
 	}
 
 	setX(x, oX, w, pix) {
@@ -196,6 +332,9 @@ class bbox {
 		ctx.fillRect(oX+this.x*pix, oY + this.y*pix, this.w*pix, this.h*pix);
 	}
 }
+
+
+
 
 // class bouncer extends bbox {
 // 	draw(ctx) {
