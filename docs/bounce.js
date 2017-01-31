@@ -39,8 +39,8 @@ function bounce(debug=false) {
 		pix = 1;
 	}
 
-	var canvasWidth = 200*pix;//
-	var canvasHeight = 400*pix;//parent.innerHeight;
+	var canvasWidth = 210*pix;//
+	var canvasHeight = 420*pix;//parent.innerHeight;
 
 	if(debug) {
 		canvasHeight = 600*pix;
@@ -56,8 +56,8 @@ function bounce(debug=false) {
 	var width = 200*pix;
 	var height = 400*pix;
 
-	var originX = 0*pix;//(canvasWidth - width) / 2;
-	var originY = 0*pix;
+	var originX = 5*pix;//(canvasWidth - width) / 2;
+	var originY = 10*pix;
 
 	if(debug) {
 		originX = 50*pix;
