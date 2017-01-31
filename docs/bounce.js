@@ -20,29 +20,47 @@ function bounce(debug=false) {
 	// Internal variables
 	var intervalTime = 1000 / frameRate;
 
-	console.log(intervalTime);
+	// console.log(intervalTime);
 
-	var canvasWidth = parent.innerWidth;
-	var canvasHeight = parent.innerHeight;
-
+	var screenW = parent.innerWidth;
+	var screenH = parent.innerHeight;
 	var gr = 2;
+
+	if(canvasHeight/gr > canvasWidth) {
+		var pix = Math.floor(screenW/200);
+		
+	} else {
+		var pix = Math.floor(screenH/400);
+	}
+
+	if(pix<1) {
+		pix = 1;
+	}
+
+	var canvasWidth = 200*pix;//
+	var canvasHeight = 400*pix;//parent.innerHeight;
+
+	if(debug) {
+		canvasHeight = 600*pix;
+		canvasWidth = 300*pix;
+	}
+
 	var dmsg = ["Debug Info"];
 
 	canvas.setAttribute("width", canvasWidth);
 	canvas.setAttribute("height", canvasHeight);
 
-	if(canvasHeight/gr > canvasWidth) {
-		var pix = canvasWidth/200;
-		
-	} else {
-		var pix = canvasHeight/400;
-	}
 
 	var width = 200*pix;
 	var height = 400*pix;
 
-	var originX = (canvasWidth - width) / 2;
-	var originY = 0;
+	var originX = 0*pix;//(canvasWidth - width) / 2;
+	var originY = 0*pix;
+
+	if(debug) {
+		originX = 50*pix;
+		originY = 10*pix;
+	}
 
 	var timer = window.performance;
 
@@ -51,23 +69,44 @@ function bounce(debug=false) {
 	 * SETUP
 	 */
 
-
-	var bouncer = new bbox(0, 360, 50, 10);
-
+	var screen = newGame();
+	var mouseX = 0;
+	var mouseY = 0;
 
 	/**
 	 * Event handling
 	 */
 
+	console.log();
+	var canvasCoords = canvas.getClientRects();
+	var canvasX = canvasCoords[0].left;
+	var canvasY = canvasCoords[0].top;
+
 	window.focus();
-	window.addEventListener("mousemove", function(e) {
+	canvas.addEventListener("mousemove", function(e) {
 		// console.log(e);
-		bouncer.setX(e.screenX, originX, width, pix);
+		mouseX = e.pageX - canvasX;
+		mouseY = e.pageY - canvasY;
+		screen.bouncers[0].setX(mouseX, originX, width, pix);
+		// console.log(e);
 	}, false);
 
 	window.addEventListener("touchmove", function(e) {
 		// console.log(e);
-		bouncer.setX(e.touches[0].pageX, originX, width, pix);
+		screen.bouncers[0].setX(e.touches[0].pageX, originX, width, pix);
+	}, false);
+
+	window.addEventListener("mousedown", function(e) {
+		// console.log(e);
+		for (let i = 0; i < screen.balls.length; i++) {
+			// console.log("Ball" + i);
+			screen.balls[i].vel.x = 1;
+			screen.balls[i].vel.y = -1;
+			screen.balls[i].follow = null;
+			screen.balls[i].stuck = false;
+		}
+		// console.log(screen.balls[0]);
+
 	}, false);
 
 	/**
@@ -77,31 +116,100 @@ function bounce(debug=false) {
 		let drawStart = timer.now();
 		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
+		for (let i = 0; i < screen.bouncers.length; i++) {
+			screen.bouncers[i].draw(ctx, originX, originY, pix);
+		}
 
-		bouncer.draw(ctx, originX, originY, pix);
+		for (let i = 0; i < screen.balls.length; i++) {
+			screen.balls[i].move(screen);
+			screen.balls[i].draw(ctx, originX, originY, pix);
 
-		dmsg.push(bouncer.x);
+			if(screen.balls[i].y > originY + height) {
+				screen.balls.splice(i, 1);
+			}
+
+			if(screen.balls.length == 0) {
+				newBall(screen);
+			}
+		}
+
+		if(screen.bouncers.length < 5) {
+			newBlocks(screen);
+		}
+
+
+		dmsg.push(screen.bouncers[0].x);
 
 		if(debug) {
 			let drawTime = Math.floor(1000*(timer.now() - drawStart))/1000;
 			dmsg.push("Render time [ms]: " + drawTime);
 			dmsg.push("Frame rate [fps]: " + frameRate);
+			dmsg.push("Mouse x: " + mouseX + " y: " + mouseY);
 			debugMessage();
 		}
 	}, intervalTime);
 
+	/**
+	 * Creates a new game. Called automatically at start. Also called when
+	 * a game ends and user selects to play again.
+	 */
+	function newGame() {
+		let screenTree = {
+			bouncers: [],
+			balls: []
+		}
 
+		// Paddling box
+		let bouncer = new bbox(0, 360, 50, 30, "paddle");
+		screenTree.bouncers.push(bouncer);
+
+		newBlocks(screenTree);
+		
+		newBall(screenTree);
+
+		screenTree.bouncers.push(new bbox(-5, -5, 5, 410, "wall"));
+		screenTree.bouncers.push(new bbox(200, -5, 5, 410, "wall"));
+		screenTree.bouncers.push(new bbox(-5, -5, 210, 5, "wall"));
+		// screenTree.bouncers.push(new bbox(0, 400, 200, 5));
+
+		return screenTree;
+
+	}
+
+	function newBall(screenTree) {
+		// The ball
+		let bouncee = new bbox(100, 250, 10, 10, "ball");
+		bouncee.color = 247;
+		bouncee.vel = new vect(0,0);
+		bouncee.follow = screenTree.bouncers[0];
+		bouncee.stuck = true;
+		screenTree.balls.push(bouncee);
+	}
+
+	function newBlocks(screenTree) {
+		// Blocks
+		let bw = 20;
+		let bh = 15;
+		for (let i = 0; i < 10; i++) {
+			for (let j = 0; j < 5; j++) {
+				let b = new bbox(i*bw, 2*bh + j*bh, bw, bh)
+				b.color = 50*j;
+				screenTree.bouncers.push(b);
+			}
+		}
+
+	}
 
 	function debugMessage() {
 		ctx.strokeStyle = "black";
 		ctx.lineWidth = 1;
 		ctx.strokeRect(originX-1, originY-1, width+1, height+1);
 
-		ctx.font ="10px monospace";
+		ctx.font ="8px monospace";
 		ctx.fillStyle = "black";
 
 		for(let i  = 0; i < dmsg.length; i++) {
-			ctx.fillText(dmsg[i], originX + width + 5, originY + 13*(i+1));
+			ctx.fillText(dmsg[i], originX, originY + height + 13*(i+1));
 		}
 
 		dmsg = ["Debug Info"];
@@ -147,19 +255,26 @@ class vect {
 	}
 }
 
+
 class bbox {
-	constructor(x, y, w, h) {
+	constructor(x, y, w, h, t="block") {
 		this.x = x;
 		this.y = y;
 		this.w = w;
 		this.h = h;
+		this.follow = null;
+		this.stuck = false;
+		this.r = null;
+		this.vel = null;
+		this.type = t;
+		this.color = 156;
 	}
 	
-	isin(bb) {
-		let x11 = this.x;
-		let y11 = this.y;
-		let x12 = this.x+this.w;
-		let y12 = this.y+this.h;
+	isin(bb,x,y) {
+		let x11 = x;
+		let y11 = y;
+		let x12 = x+this.w;
+		let y12 = y+this.h;
 		let x21 = bb.x;
 		let y21 = bb.y;
 		let x22 = bb.x+bb.w;
@@ -169,12 +284,104 @@ class bbox {
 		if(Math.max(y11, y12) < Math.min(y21, y22)) return false;
 		if(Math.min(y11, y12) > Math.max(y21, y22)) return false;
 
+
 		return true;
 	}
+	
+	collides(bb) {
+		let x11 = this.x;// + this.vel.x;
+		let y11 = this.y;// + this.vel.y;
+		let x12 = this.x+this.w;// + this.vel.x;
+		let y12 = this.y+this.h;// + this.vel.y;
+		let x21 = bb.x;
+		let y21 = bb.y;
+		let x22 = bb.x+bb.w;
+		let y22 = bb.y+bb.h;
 
-	translate(v) {
-		this.x += v.x;
-		this.y += v.y;
+
+		//Detect collision and return impact direction.
+		// Check Right
+		// They should touch either from right or left
+		// AND they should be at the same y so that they can touch.
+		if(Math.max(x11, x12) > Math.min(x21, x22)
+		 && Math.min(x11, x12) < Math.min(x21, x22))
+		{
+			if (Math.max(y11, y12) <  Math.min(y21, y22)) return false;
+			if (Math.min(y11, y12) >  Math.max(y21, y22)) return false;
+
+			// console.log("right collision");
+			this.vel.x *= -1;
+			return true;
+		}
+
+		// Check left
+		if(Math.min(x11, x12) < Math.max(x21, x22)
+		 && Math.max(x11, x12) > Math.max(x21, x22))
+		{
+			if (Math.max(y11, y12) <  Math.min(y21, y22)) return false;
+			if (Math.min(y11, y12) >  Math.max(y21, y22)) return false;
+
+			// console.log("left collision");
+			this.vel.x *= -1;
+			return true;
+		}
+
+		// Check bottom
+		if(Math.max(y11, y12) > Math.min(y21, y22)
+		 && Math.min(y11, y12) < Math.min(y21, y22))
+		{
+			if(Math.max(x11, x12) < Math.min(x21, x22)) return false;
+			if(Math.min(x11, x12) > Math.max(x21, x22)) return false;
+
+			// console.log("bottom collision");
+			this.vel.y *= -1;
+			return true;
+		}
+
+		// Check top
+		if(Math.min(y11, y12) < Math.max(y21, y22)
+		 && Math.max(y11, y12) > Math.max(y21, y22))
+		{
+			if(Math.max(x11, x12) < Math.min(x21, x22)) return false;
+			if(Math.min(x11, x12) > Math.max(x21, x22)) return false;
+
+			// console.log("top collision");
+			this.vel.y *= -1;
+			return true;
+		}
+
+
+		return false;
+		
+	}
+
+
+	move(screenTree) {
+		if(this.stuck) {
+			// r is the relative coordinate
+			if(this.r == null) {
+				this.r = new vect(20,-10);
+			}
+
+			this.x = this.r.x + this.follow.x;
+			this.y = this.r.y + this.follow.y;
+		} else {
+			for(let i = 0; i < screenTree.bouncers.length; i++) {
+				let b = screenTree.bouncers[i];
+				if(this.collides(b)){
+					// console.log("collision " + i);
+					if(b.type == "block") {
+						screenTree.bouncers.splice(i, 1);
+					}
+					
+				}
+
+			}
+			// console.log(this.x);
+			// console.log(this.vel.x);
+			this.x += this.vel.x;
+			this.y += this.vel.y;
+		}
 	}
 
 	setX(x, oX, w, pix) {
@@ -192,14 +399,15 @@ class bbox {
 	}
 
 	draw(ctx, oX, oY, pix) {
-		ctx.fillStyle = "rgba(0,255,0,0.5)";
-		ctx.fillRect(oX+this.x*pix, oY + this.y*pix, this.w*pix, this.h*pix);
+		ctx.fillStyle = "hsla("+this.color+",100%,50%,1)";
+
+		if(this.type == "ball") {
+			ctx.beginPath();
+			let r = this.w*pix/2;
+			ctx.ellipse(oX+this.x*pix + r, oY + this.y*pix + r, r, r, 0, 0, 2*Math.PI);
+			ctx.fill();
+		}else{
+			ctx.fillRect(oX+this.x*pix+1, oY + this.y*pix+1, this.w*pix-1, this.h*pix-1);
+		}
 	}
 }
-
-// class bouncer extends bbox {
-// 	draw(ctx) {
-// 		ctx.fillStyle = "green";
-// 		ctx.fillRect(this.x, this.y, this.width, this.height);
-// 	}
-// }
