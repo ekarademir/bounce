@@ -156,7 +156,7 @@ function bounce(debug=false) {
 			score += dscore;
 		}
 
-		if (dscore >0 && score>0 && score%5==0) {
+		if (dscore >0 && score>0 && score%20==0) {
 			lives++;
 		}
 
