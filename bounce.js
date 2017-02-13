@@ -30,7 +30,7 @@ function bounce(debug=false) {
 
 	if(canvasHeight/gr > canvasWidth) {
 		var pix = Math.floor(screenW/200);
-		
+
 	} else {
 		var pix = Math.floor(screenH/400);
 	}
@@ -208,7 +208,7 @@ function bounce(debug=false) {
 		screenTree.bouncers.push(bouncer);
 
 		newBlocks(screenTree);
-		
+
 		newBall(screenTree);
 
 		screenTree.bouncers.push(new bbox(-2, -2, 2, 404, "wall"));
@@ -310,7 +310,7 @@ class bbox {
 		this.type = t;
 		this.color = 156;
 	}
-	
+
 	isin(bb) {
 		let x11 = this.x;
 		let y11 = this.y;
@@ -328,7 +328,7 @@ class bbox {
 
 		return true;
 	}
-	
+
 	collides(bb) {
 		let x11 = this.x;// + this.vel.x;
 		let y11 = this.y;// + this.vel.y;
@@ -396,7 +396,7 @@ class bbox {
 
 
 		return false;
-		
+
 	}
 
 
@@ -420,7 +420,7 @@ class bbox {
 						screenTree.bouncers.splice(i, 1);
 						score++;
 					}
-					
+
 				}
 
 			}
