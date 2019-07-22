@@ -3,4 +3,4 @@ A browser based game.
 
 
 ## Play
-http://projects.ekarademir.com/bounce/
+https://www.ekarademir.com/bounce/
